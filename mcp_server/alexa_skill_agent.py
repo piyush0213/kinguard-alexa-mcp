@@ -43,62 +43,12 @@ class KinGuardAlexaAgent:
     def handle_intent(self, intent_text: str) -> Dict[str, Any]:
         """
         Routes resident query to appropriate MCP cognitive tools and applies Bedrock steering.
+        Prioritizes emotional distress / panic loops for caregiver safety.
         """
         text = intent_text.lower()
 
-        # Scenario 1: Visitor / Front Door / Doorbell anxiety
-        if any(w in text for w in ["door", "who is", "knocking", "bell", "outside", "stranger", "visitor"]):
-            door_state = get_visitor_state()
-            telemetry = {"door": door_state}
-            steered_speech = self.bedrock_engine.steer_dialog(self.resident_name, intent_text, telemetry)
-
-            return {
-                "mcp_tool_called": "kinguard_get_door_snapshot",
-                "alexa_speech": steered_speech,
-                "suggested_actions": ["Ask them to leave on porch", "Come back later", "Unlock door"],
-                "cognitive_intent": "DOOR_VERIFICATION",
-                "aws_engine": "Amazon Bedrock (Claude 3.5)"
-            }
-
-        # Scenario 2: Visitor response action (e.g. "Tell them to leave it on the porch")
-        elif any(w in text for w in ["leave it", "porch", "drop it", "leave package"]):
-            tts_to_visitor = "Please leave the parcel by the front door. Martha is resting inside. Thank you!"
-            res = set_visitor_response("LEAVE_PACKAGE_ON_PORCH", tts_to_visitor)
-            return {
-                "mcp_tool_called": "kinguard_respond_door_visitor",
-                "alexa_speech": f"I've spoken through the porch intercom and asked the courier to leave the package by the door. You don't need to get up, {self.resident_name}.",
-                "intercom_delivered": tts_to_visitor,
-                "cognitive_intent": "VISITOR_INTERCOM_DISPATCH",
-                "aws_engine": "Amazon Bedrock (Claude 3.5)"
-            }
-
-        # Scenario 3: Medication memory verification (e.g. "Did I take my blood pressure pills?")
-        elif any(w in text for w in ["medication", "pill", "medicine", "blood pressure", "metoprolol"]):
-            meds = get_medication_status("Metoprolol")
-            telemetry = {"medications": meds}
-            steered_speech = self.bedrock_engine.steer_dialog(self.resident_name, intent_text, telemetry)
-
-            return {
-                "mcp_tool_called": "kinguard_verify_medication_state",
-                "alexa_speech": steered_speech,
-                "cognitive_intent": "MEDICATION_GROUNDING",
-                "aws_engine": "Amazon Bedrock (Claude 3.5)"
-            }
-
-        # Scenario 4: General home safety anxiety (e.g. "Is the stove off?", "Are we safe?")
-        elif any(w in text for w in ["stove", "safe", "lock", "house", "fire", "danger"]):
-            telemetry = {"home_vitals": STATE["home_vitals"]}
-            steered_speech = self.bedrock_engine.steer_dialog(self.resident_name, intent_text, telemetry)
-
-            return {
-                "mcp_tool_called": "kinguard_verify_home_safety",
-                "alexa_speech": steered_speech,
-                "cognitive_intent": "SAFETY_VALIDATION",
-                "aws_engine": "Amazon Bedrock (Claude 3.5)"
-            }
-
-        # Scenario 5: Emergency or High Anxiety Panic Loop
-        elif any(w in text for w in ["scared", "help", "panic", "emergency", "sarah", "daughter"]):
+        # Priority 1: Emergency or High Anxiety Panic Loop
+        if any(w in text for w in ["scared", "help", "panic", "emergency", "sarah", "daughter", "danger"]):
             alert_payload = {
                 "resident_name": STATE["resident"]["name"],
                 "severity": "HIGH",
@@ -120,6 +70,57 @@ class KinGuardAlexaAgent:
                 "sns_dispatch": dispatch_info,
                 "cognitive_intent": "EMERGENCY_ESCALATION",
                 "aws_engine": "Amazon SNS & EventBridge"
+            }
+
+        # Scenario 2: Visitor response action (e.g. "Tell them to leave it on the porch")
+        elif any(w in text for w in ["leave it", "porch", "drop it", "leave package"]):
+            tts_to_visitor = "Please leave the parcel by the front door. Martha is resting inside. Thank you!"
+            res = set_visitor_response("LEAVE_PACKAGE_ON_PORCH", tts_to_visitor)
+            return {
+                "mcp_tool_called": "kinguard_respond_door_visitor",
+                "alexa_speech": f"I've spoken through the porch intercom and asked the courier to leave the package by the door. You don't need to get up, {self.resident_name}.",
+                "intercom_delivered": tts_to_visitor,
+                "cognitive_intent": "VISITOR_INTERCOM_DISPATCH",
+                "aws_engine": "Amazon Bedrock (Claude 3.5)"
+            }
+
+        # Scenario 3: Visitor / Front Door / Doorbell anxiety
+        elif any(w in text for w in ["door", "who is", "knocking", "bell", "outside", "stranger", "visitor"]):
+            door_state = get_visitor_state()
+            telemetry = {"door": door_state}
+            steered_speech = self.bedrock_engine.steer_dialog(self.resident_name, intent_text, telemetry)
+
+            return {
+                "mcp_tool_called": "kinguard_get_door_snapshot",
+                "alexa_speech": steered_speech,
+                "suggested_actions": ["Ask them to leave on porch", "Come back later", "Unlock door"],
+                "cognitive_intent": "DOOR_VERIFICATION",
+                "aws_engine": "Amazon Bedrock (Claude 3.5)"
+            }
+
+        # Scenario 4: Medication memory verification (e.g. "Did I take my blood pressure pills?")
+        elif any(w in text for w in ["medication", "pill", "medicine", "blood pressure", "metoprolol"]):
+            meds = get_medication_status("Metoprolol")
+            telemetry = {"medications": meds}
+            steered_speech = self.bedrock_engine.steer_dialog(self.resident_name, intent_text, telemetry)
+
+            return {
+                "mcp_tool_called": "kinguard_verify_medication_state",
+                "alexa_speech": steered_speech,
+                "cognitive_intent": "MEDICATION_GROUNDING",
+                "aws_engine": "Amazon Bedrock (Claude 3.5)"
+            }
+
+        # Scenario 5: General home safety anxiety (e.g. "Is the stove off?", "Are we safe?")
+        elif any(w in text for w in ["stove", "safe", "lock", "house", "fire"]):
+            telemetry = {"home_vitals": STATE["home_vitals"]}
+            steered_speech = self.bedrock_engine.steer_dialog(self.resident_name, intent_text, telemetry)
+
+            return {
+                "mcp_tool_called": "kinguard_verify_home_safety",
+                "alexa_speech": steered_speech,
+                "cognitive_intent": "SAFETY_VALIDATION",
+                "aws_engine": "Amazon Bedrock (Claude 3.5)"
             }
 
         # Default fallback
