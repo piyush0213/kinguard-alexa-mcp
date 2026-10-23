@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'KinGuard Ambient Cognitive Care Protocol - AWS Bedrock, SNS & EventBridge Architecture'
+
+Parameters:
+  CaregiverPhoneNumber:
+    Type: String
+    Default: '+15550192831'
+    Description: 'E.164 phone number for primary caregiver emergency SMS notifications'
+  EnvironmentName:
+    Type: String
+    Default: 'production'
+
+Resources:
+  # Amazon SNS Topic for Caregiver SMS Escalations
+  KinGuardCaregiverTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'kinguard-caregiver-escalations-${EnvironmentName}'
+      DisplayName: 'KinGuard Elderly Caregiver Escalations'
+
+  CaregiverSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref KinGuardCaregiverTopic
+      Protocol: sms
+      Endpoint: !Ref CaregiverPhoneNumber
+
+  # Amazon EventBridge Custom Event Bus for Audit Log
+  KinGuardEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub 'kinguard-cognitive-events-${EnvironmentName}'
+
+  # EventBridge Rule to route HIGH and EMERGENCY incidents to SNS
+  KinGuardEscalationRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref KinGuardEventBus
+      EventPattern:
+        source:
+          - 'kinguard.alexa'
+        detail-type:
+          - 'CaregiverEscalation'
+        detail:
+          severity:
+            - 'HIGH'
+            - 'EMERGENCY'
+      State: 'ENABLED'
+      Targets:
+        - Arn: !Ref KinGuardCaregiverTopic
+          Id: 'SendToCaregiverSNS'
+
+  # IAM Role for Alexa+ Agent to invoke Amazon Bedrock Claude 3.5
+  KinGuardBedrockExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'kinguard-bedrock-execution-role-${EnvironmentName}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: BedrockInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'bedrock:InvokeModel'
+                  - 'bedrock:InvokeModelWithResponseStream'
+                Resource:
+                  - 'arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-20240307-v1:0'
+                  - 'arn:aws:bedrock:*::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0'
+              - Effect: Allow
+                Action:
+                  - 'sns:Publish'
+                Resource: !Ref KinGuardCaregiverTopic
+              - Effect: Allow
+                Action:
+                  - 'events:PutEvents'
+                Resource: !GetAtt KinGuardEventBus.Arn
+
+Outputs:
+  TopicArn:
+    Description: 'ARN of the Caregiver SNS Topic'
+    Value: !Ref KinGuardCaregiverTopic
+  EventBusArn:
+    Description: 'ARN of the Cognitive EventBridge Bus'
+    Value: !GetAtt KinGuardEventBus.Arn

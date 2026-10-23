@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KinGuard | Alexa+ & Ring Cognitive Care Ambient Protocol</title>
+  <style>
+    :root {
+      --bg-dark: #080b12;
+      --bg-panel: #0f172a;
+      --bg-card: #1e293b;
+      --border: #334155;
+      --alexa-cyan: #00caec;
+      --alexa-blue: #0284c7;
+      --ring-blue: #0ea5e9;
+      --aws-amber: #f59e0b;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f97316;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    header {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--alexa-cyan), var(--alexa-blue));
+      box-shadow: 0 0 16px rgba(0, 202, 236, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: white;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .header-badges {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .badge-alexa {
+      background: rgba(0, 202, 236, 0.12);
+      color: var(--alexa-cyan);
+      border-color: rgba(0, 202, 236, 0.3);
+    }
+
+    .badge-ring {
+      background: rgba(14, 165, 233, 0.12);
+      color: var(--ring-blue);
+      border-color: rgba(14, 165, 233, 0.3);
+    }
+
+    .badge-aws {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--aws-amber);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-audio-toggle {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.15s;
+    }
+
+    .btn-audio-toggle:hover {
+      background: #334155;
+    }
+
+    /* 3-Column Grid Layout */
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: 430px 1fr 400px;
+      gap: 1.25rem;
+      padding: 1.25rem 1.5rem;
+      flex: 1;
+    }
+
+    @media (max-width: 1350px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Column 1: Ring Porch Camera Feed */
+    .camera-frame {
+      background: #000;
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 16/10;
+      border: 1px solid #1e293b;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 0.85rem;
+    }
+
+    /* CRT scanlines effect */
+    .camera-frame::after {
+      content: " ";
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .cam-top-hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      color: #10b981;
+      font-family: "Courier New", Courier, monospace;
+      font-weight: 700;
+      z-index: 3;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    }
+
+    .cam-rec-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      margin-right: 4px;
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .visitor-stage {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0;
+      z-index: 3;
+    }
+
+    .visitor-avatar-icon {
+      font-size: 4.5rem;
+      filter: drop-shadow(0 0 16px rgba(0,0,0,0.85));
+      transition: transform 0.25s ease;
+    }
+
+    .visitor-bounding-box {
+      border: 2px dashed #10b981;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 8px;
+      padding: 0.35rem 0.75rem;
+      margin-top: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+
+    .visitor-bounding-box.unverified {
+      border-color: var(--aws-amber);
+      background: rgba(245, 158, 11, 0.15);
+      color: #fef3c7;
+    }
+
+    .visitor-bounding-box.clear {
+      border-color: #64748b;
+      background: rgba(100, 116, 139, 0.1);
+      color: #cbd5e1;
+    }
+
+    .cam-bottom-hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      color: #94a3b8;
+      font-family: monospace;
+      z-index: 3;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+
+    .intercom-box {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--alexa-cyan);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.78rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .intercom-title {
+      font-size: 0.68rem;
+      color: var(--alexa-cyan);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .intercom-text {
+      color: #e2e8f0;
+      font-style: italic;
+    }
+
+    /* Scenario Trigger Buttons */
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .scenario-btn {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: #e2e8f0;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+
+    .scenario-btn:hover {
+      background: #334155;
+      border-color: var(--ring-blue);
+      transform: translateY(-1px);
+    }
+
+    .scenario-btn.active {
+      border-color: var(--alexa-cyan);
+      background: rgba(0, 202, 236, 0.15);
+      color: #fff;
+    }
+
+    /* Column 2: Alexa+ Voice Interaction */
+    .alexa-visual-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem 0 0.5rem;
+      position: relative;
+    }
+
+    .alexa-orb {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #38bdf8, #0284c7 65%, #0369a1);
+      box-shadow: 0 0 28px rgba(56, 189, 248, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 2rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+
+    .alexa-orb.pulsing {
+      animation: orb-pulse 1.8s infinite ease-in-out;
+    }
+
+    @keyframes orb-pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 25px rgba(56, 189, 248, 0.5);
+      }
+      50% {
+        transform: scale(1.08);
+        box-shadow: 0 0 45px rgba(56, 189, 248, 0.85);
+      }
+    }
+
+    .audio-waves-container {
+      display: flex;
+      gap: 3px;
+      height: 20px;
+      align-items: center;
+      margin-top: 0.65rem;
+    }
+
+    .audio-wave-bar {
+      width: 3px;
+      height: 6px;
+      background: var(--alexa-cyan);
+      border-radius: 9999px;
+      transition: height 0.1s ease;
+    }
+
+    .audio-waves-container.active .audio-wave-bar {
+      animation: wave-anim 0.8s infinite ease-in-out alternate;
+    }
+
+    .audio-waves-container.active .audio-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+    .audio-waves-container.active .audio-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+    .audio-waves-container.active .audio-wave-bar:nth-child(4) { animation-delay: 0.3s; }
+    .audio-waves-container.active .audio-wave-bar:nth-child(5) { animation-delay: 0.4s; }
+    .audio-waves-container.active .audio-wave-bar:nth-child(6) { animation-delay: 0.2s; }
+    .audio-waves-container.active .audio-wave-bar:nth-child(7) { animation-delay: 0.1s; }
+
+    @keyframes wave-anim {
+      0% { height: 4px; }
+      100% { height: 18px; }
+    }
+
+    /* Chat messages */
+    .chat-container {
+      background: #0a0f1d;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      flex: 1;
+      overflow-y: auto;
+      max-height: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .msg-bubble {
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      max-width: 88%;
+      animation: fade-in 0.25s ease-out;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-bubble.resident {
+      background: #1e293b;
+      align-self: flex-end;
+      border-bottom-right-radius: 2px;
+      color: #f1f5f9;
+      border: 1px solid #334155;
+    }
+
+    .msg-bubble.alexa {
+      background: rgba(0, 202, 236, 0.1);
+      border: 1px solid rgba(0, 202, 236, 0.3);
+      align-self: flex-start;
+      border-bottom-left-radius: 2px;
+      color: #e0f2fe;
+    }
+
+    .msg-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.3rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .msg-bubble.alexa .msg-meta {
+      color: var(--alexa-cyan);
+    }
+
+    .msg-bubble.resident .msg-meta {
+      color: #94a3b8;
+    }
+
+    .intent-pill {
+      background: rgba(0, 202, 236, 0.2);
+      color: #38bdf8;
+      font-size: 0.65rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* Input box and mic */
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: #0a0f1d;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 0.7rem 0.9rem;
+      border-radius: 8px;
+      outline: none;
+      font-size: 0.85rem;
+    }
+
+    .chat-input:focus {
+      border-color: var(--alexa-cyan);
+    }
+
+    .btn-mic {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: #f87171;
+      width: 42px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      transition: all 0.15s;
+    }
+
+    .btn-mic.recording {
+      background: #ef4444;
+      color: white;
+      border-color: #ef4444;
+      animation: pulse-red 1.2s infinite;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+      50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); }
+    }
+
+    .btn-send {
+      background: linear-gradient(135deg, var(--alexa-cyan), var(--alexa-blue));
+      color: white;
+      border: none;
+      padding: 0 1.25rem;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: opacity 0.15s;
+    }
+
+    .btn-send:hover {
+      opacity: 0.9;
+    }
+
+    /* Quick prompts list */
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .chip-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip-btn:hover {
+      background: #334155;
+      border-color: var(--alexa-cyan);
+      color: #fff;
+    }
+
+    /* Column 3: Telemetry, Controls & Cloud Audits */
+    .card-section {
+      background: #0a0f1d;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .sensor-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid #1e293b;
+      font-size: 0.78rem;
+    }
+
+    .sensor-item:last-child {
+      border-bottom: none;
+    }
+
+    .toggle-pill {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: #e2e8f0;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .toggle-pill:hover {
+      border-color: var(--alexa-cyan);
+    }
+
+    .toggle-pill.on {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #10b981;
+    }
+
+    .toggle-pill.alert {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    /* Caregiver SMS phone preview */
+    .sms-preview {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .sms-header {
+      display: flex;
+      justify-content: space-between;
+      color: #94a3b8;
+      font-size: 0.68rem;
+    }
+
+    .sms-body {
+      color: #f1f5f9;
+      line-height: 1.35;
+      background: #0f172a;
+      padding: 0.45rem 0.6rem;
+      border-radius: 6px;
+      border-left: 2px solid var(--aws-amber);
+    }
+
+    /* MCP Streamable Terminal */
+    .mcp-terminal {
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.7rem;
+      color: #38bdf8;
+      flex: 1;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Bar -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">K</div>
+      <div>
+        <div class="brand-title">KinGuard <span style="font-weight: 400; color: #38bdf8; font-size: 0.9rem;">(Ambient Cognitive Care Protocol)</span></div>
+        <div class="brand-sub">Alexa+ MCP Server (Spec 2025-11-25) & Ring Smart Doorbell Cognitive Guardrails</div>
+      </div>
+    </div>
+    
+    <div class="header-badges">
+      <span class="badge badge-alexa">● Alexa+ Streamable HTTP</span>
+      <span class="badge badge-ring">● Ring Camera Verified</span>
+      <span class="badge badge-aws">● AWS Bedrock & SNS</span>
+      <button class="btn-audio-toggle" id="btnMuteToggle" onclick="toggleAudioSpeech()">
+        <span id="audioIcon">🔊</span> <span id="audioStatus">Voice: ON</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="dashboard-container">
+    
+    <!-- COLUMN 1: Ring Porch Camera Feed & Scenarios -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+          Ring Front Door Live Stream
+        </div>
+        <button class="scenario-btn" style="padding: 0.25rem 0.5rem; font-size: 0.7rem;" onclick="simulateDoorbellRing()">
+          🔔 Ring Chime
+        </button>
+      </div>
+
+      <!-- Ring Camera Viewport -->
+      <div class="camera-frame">
+        <div class="cam-top-hud">
+          <span><span class="cam-rec-dot"></span>LIVE [RING-CAM-PORCH-01]</span>
+          <span id="hudTimestamp">2026-10-23 17:55:00</span>
+        </div>
+
+        <div class="visitor-stage">
+          <div class="visitor-avatar-icon" id="visitorIcon">📦 👨‍✈️</div>
+          <div class="visitor-bounding-box" id="visitorBounding">
+            ✓ 99.1% MATCH: Amazon Prime Courier (#4029-AMZ)
+          </div>
+        </div>
+
+        <div class="cam-bottom-hud">
+          <span id="hudDetails">CARRYING: Cardboard Parcel</span>
+          <span id="hudDoorLock">LATCH: SECURE (LOCKED)</span>
+        </div>
+      </div>
+
+      <!-- Two-Way Porch Intercom Bar -->
+      <div class="intercom-box">
+        <div class="intercom-title">Porch Speaker Intercom Telemetry</div>
+        <div class="intercom-text" id="intercomSub">
+          Intercom standby. No audio currently broadcasting to porch.
+        </div>
+      </div>
+
+      <!-- Interactive Scenario Controls -->
+      <div class="panel-title" style="margin-top: 0.25rem;">Simulate Doorbell Scenarios</div>
+      <div class="scenario-grid">
+        <button class="scenario-btn active" id="scenCourier" onclick="switchScenario('amazon_courier')">
+          📦 Amazon Courier (Verified)
+        </button>
+        <button class="scenario-btn" id="scenStranger" onclick="switchScenario('unverified_stranger')">
+          ❓ Unverified Stranger
+        </button>
+        <button class="scenario-btn" id="scenNeighbor" onclick="switchScenario('neighbor')">
+          🏡 Neighbor Tom (Trusted)
+        </button>
+        <button class="scenario-btn" id="scenClear" onclick="switchScenario('clear')">
+          🚪 Clear Porch (Empty)
+        </button>
+      </div>
+    </div>
+
+    <!-- COLUMN 2: Alexa+ Voice Interaction & Guardrail Dialog -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/></svg>
+          Alexa+ Ambient Voice Dialog
+        </div>
+        <div style="font-size: 0.72rem; color: #38bdf8;">Resident: Martha Miller (78)</div>
+      </div>
+
+      <!-- Alexa Glowing Orb & Waveform -->
+      <div class="alexa-visual-stage">
+        <div class="alexa-orb" id="alexaOrb" onclick="toggleMicRecording()">
+          🎙️
+        </div>
+        <div class="audio-waves-container" id="audioWaves">
+          <div class="audio-wave-bar"></div>
+          <div class="audio-wave-bar"></div>
+          <div class="audio-wave-bar"></div>
+          <div class="audio-wave-bar"></div>
+          <div class="audio-wave-bar"></div>
+          <div class="audio-wave-bar"></div>
+          <div class="audio-wave-bar"></div>
+        </div>
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.35rem;" id="speechStateLabel">
+          Click orb or mic to speak to Alexa+
+        </div>
+      </div>
+
+      <!-- Chat History -->
+      <div class="chat-container" id="chatBox">
+        <div class="msg-bubble alexa">
+          <div class="msg-meta">
+            <span>ALEXA+</span>
+            <span class="intent-pill">AMBIENT_GREETING</span>
+          </div>
+          Good morning Martha! I'm right here keeping watch over the home with you. The stove is turned off, and your front door is safely locked.
+        </div>
+      </div>
+
+      <!-- Quick Preset Chips -->
+      <div class="quick-chips">
+        <button class="chip-btn" onclick="sendResidentQuery('Who is at the front door?')">
+          🔔 "Who is at the front door?"
+        </button>
+        <button class="chip-btn" onclick="sendResidentQuery('Tell them to leave the package on the porch')">
+          📦 "Tell them to leave it on the porch"
+        </button>
+        <button class="chip-btn" onclick="sendResidentQuery('Did I take my blood pressure pills today?')">
+          💊 "Did I take my blood pressure pills?"
+        </button>
+        <button class="chip-btn" onclick="sendResidentQuery('Is the stove turned off? Are we safe?')">
+          🛡️ "Is the stove off? Are we safe?"
+        </button>
+        <button class="chip-btn" onclick="sendResidentQuery('I am scared, someone is outside!')">
+          🚨 "I'm scared! Someone is outside!"
+        </button>
+      </div>
+
+      <!-- Text and Mic Input -->
+      <div class="input-row">
+        <input type="text" class="chat-input" id="userInput" placeholder="Speak to Alexa+ as Martha (or click mic)..." onkeydown="if(event.key==='Enter') submitCustomQuery()" />
+        <button class="btn-mic" id="btnMic" title="Click to speak using your microphone" onclick="toggleMicRecording()">
+          🎙️
+        </button>
+        <button class="btn-send" onclick="submitCustomQuery()">Speak</button>
+      </div>
+    </div>
+
+    <!-- COLUMN 3: Ambient IoT Telemetry & AWS Cloud Audits -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Smart Home Telemetry</div>
+        <div style="font-size: 0.72rem; color: #10b981;">● Live Sync</div>
+      </div>
+
+      <!-- Sensor Controls -->
+      <div class="card-section">
+        <div class="section-title">
+          <span>Verifiable Sensors</span>
+          <span style="font-weight: 400; font-size: 0.65rem;">Click to toggle</span>
+        </div>
+
+        <div class="sensor-item">
+          <div>
+            <div><b>Front Door Deadbolt</b></div>
+            <div style="font-size: 0.68rem; color: #94a3b8;">Ring Smart Lock Latch</div>
+          </div>
+          <button class="toggle-pill on" id="btnLock" onclick="toggleDoorLock()">LOCKED</button>
+        </div>
+
+        <div class="sensor-item">
+          <div>
+            <div><b>Morning Metoprolol (25mg)</b></div>
+            <div style="font-size: 0.68rem; color: #94a3b8;">Smart Pill Dispenser Tray #1</div>
+          </div>
+          <button class="toggle-pill on" id="btnMeds" onclick="toggleMedication()">TAKEN (9:00 AM)</button>
+        </div>
+
+        <div class="sensor-item">
+          <div>
+            <div><b>Kitchen Stove Gas Sensor</b></div>
+            <div style="font-size: 0.68rem; color: #94a3b8;">Thermal & Flame Telemetry</div>
+          </div>
+          <button class="toggle-pill" id="btnStove" onclick="toggleStove()">OFF (SAFE)</button>
+        </div>
+      </div>
+
+      <!-- Caregiver Escalation Push (Amazon SNS / EventBridge) -->
+      <div class="card-section">
+        <div class="section-title">
+          <span>Amazon SNS Caregiver Push</span>
+          <span style="color: var(--aws-amber); font-weight: 600;">SMS DISPATCH</span>
+        </div>
+
+        <div class="sms-preview" id="smsCard">
+          <div class="sms-header">
+            <span>To: Sarah Miller (Daughter)</span>
+            <span id="smsTimestamp">Standby</span>
+          </div>
+          <div class="sms-body" id="smsBody">
+            [KinGuard Caregiver Bridge]: No active escalations. Martha's morning vitals are normal.
+          </div>
+        </div>
+      </div>
+
+      <!-- MCP Streamable Protocol Wire Log -->
+      <div class="card-section" style="flex: 1;">
+        <div class="section-title">
+          <span>MCP Streamable HTTP / SSE Wire</span>
+          <span style="color: var(--alexa-cyan);">JSON-RPC 2.0</span>
+        </div>
+
+        <div class="mcp-terminal" id="mcpLog">// KinGuard Model Context Protocol (2025-11-25)
+// Endpoint: Streamable HTTP (/mcp) + SSE (/mcp/sse)
+// Subscribed to: kinguard_get_door_snapshot, kinguard_verify_medication_state, kinguard_verify_home_safety, kinguard_escalate_caregiver
+// Session initialized successfully.</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // State management
+    let isVoiceMuted = false;
+    let isDoorLocked = true;
+    let isMedTaken = true;
+    let isStoveOff = true;
+    let activeScenario = 'amazon_courier';
+    let recognition = null;
+    let isRecording = false;
+
+    // Clock ticker
+    setInterval(() => {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const hudEl = document.getElementById('hudTimestamp');
+      if (hudEl) hudEl.innerText = timeStr;
+    }, 1000);
+
+    // Audio Chime Synthesizer via Web Audio API
+    function playChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.25); // A5
+
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.3);
+        osc2.start(audioCtx.currentTime + 0.25);
+        osc2.stop(audioCtx.currentTime + 1.2);
+      } catch (e) {
+        console.log('AudioContext not allowed yet:', e);
+      }
+    }
+
+    // Web Speech API - Synthesis
+    function speakAlexa(text) {
+      if (isVoiceMuted || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95; // slightly slower, calm cognitive care pacing
+      utterance.pitch = 1.05; // warm, gentle tone
+
+      // Pick a soothing voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Zira')));
+      if (preferred) utterance.voice = preferred;
+
+      const orb = document.getElementById('alexaOrb');
+      const waves = document.getElementById('audioWaves');
+      const speechLabel = document.getElementById('speechStateLabel');
+
+      utterance.onstart = () => {
+        orb.classList.add('pulsing');
+        waves.classList.add('active');
+        speechLabel.innerText = "Alexa+ speaking to Martha...";
+      };
+
+      utterance.onend = () => {
+        orb.classList.remove('pulsing');
+        waves.classList.remove('active');
+        speechLabel.innerText = "Click orb or mic to speak to Alexa+";
+      };
+
+      utterance.onerror = () => {
+        orb.classList.remove('pulsing');
+        waves.classList.remove('active');
+        speechLabel.innerText = "Click orb or mic to speak to Alexa+";
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleAudioSpeech() {
+      isVoiceMuted = !isVoiceMuted;
+      document.getElementById('audioIcon').innerText = isVoiceMuted ? '🔇' : '🔊';
+      document.getElementById('audioStatus').innerText = isVoiceMuted ? 'Voice: OFF' : 'Voice: ON';
+      if (isVoiceMuted && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    // Web Speech Recognition
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        console.warn("Speech recognition not supported in this browser.");
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isRecording = true;
+        document.getElementById('btnMic').classList.add('recording');
+        document.getElementById('speechStateLabel').innerText = "Listening to your voice...";
+        document.getElementById('audioWaves').classList.add('active');
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('userInput').value = transcript;
+        submitCustomQuery();
+      };
+
+      recognition.onerror = (e) => {
+        console.log("Speech recognition error:", e.error);
+        stopMic();
+      };
+
+      recognition.onend = () => {
+        stopMic();
+      };
+    }
+
+    function toggleMicRecording() {
+      if (!recognition) initSpeechRecognition();
+      if (!recognition) {
+        alert("Microphone recognition is not supported in this browser. Please type your query in the input box!");
+        return;
+      }
+      if (isRecording) {
+        recognition.stop();
+      } else {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.log(e);
+        }
+      }
+    }
+
+    function stopMic() {
+      isRecording = false;
+      document.getElementById('btnMic').classList.remove('recording');
+      document.getElementById('audioWaves').classList.remove('active');
+      document.getElementById('speechStateLabel').innerText = "Click orb or mic to speak to Alexa+";
+    }
+
+    // Scenarios Switcher
+    async function switchScenario(scenario) {
+      activeScenario = scenario;
+      ['scenCourier', 'scenStranger', 'scenNeighbor', 'scenClear'].forEach(id => {
+        document.getElementById(id).classList.remove('active');
+      });
+
+      const iconEl = document.getElementById('visitorIcon');
+      const boundingEl = document.getElementById('visitorBounding');
+      const hudDetails = document.getElementById('hudDetails');
+
+      if (scenario === 'amazon_courier') {
+        document.getElementById('scenCourier').classList.add('active');
+        iconEl.innerText = '📦 👨‍✈️';
+        boundingEl.className = 'visitor-bounding-box';
+        boundingEl.innerText = '✓ 99.1% MATCH: Amazon Prime Courier (#4029-AMZ)';
+        hudDetails.innerText = 'CARRYING: Cardboard Parcel (#4029-AMZ)';
+      } else if (scenario === 'unverified_stranger') {
+        document.getElementById('scenStranger').classList.add('active');
+        iconEl.innerText = '❓ 🚶‍♂️';
+        boundingEl.className = 'visitor-bounding-box unverified';
+        boundingEl.innerText = '⚠️ UNVERIFIED INDIVIDUAL - NO IDENTIFIER';
+        hudDetails.innerText = 'BEHAVIOR: Pacing on porch, clipboard';
+      } else if (scenario === 'neighbor') {
+        document.getElementById('scenNeighbor').classList.add('active');
+        iconEl.innerText = '🏡 🙋‍♂️';
+        boundingEl.className = 'visitor-bounding-box';
+        boundingEl.innerText = '✓ 98.7% MATCH: Tom Higgins (Next Door 402 Elm St)';
+        hudDetails.innerText = 'CARRYING: Garden Basket';
+      } else {
+        document.getElementById('scenClear').classList.add('active');
+        iconEl.innerText = '🌿 🚪';
+        boundingEl.className = 'visitor-bounding-box clear';
+        boundingEl.innerText = '● PORCH CLEAR - NO VISITOR DETECTED';
+        hudDetails.innerText = 'STATUS: Ambient porch peaceful';
+      }
+
+      // Sync backend state
+      try {
+        await fetch('/api/simulator/trigger_doorbell', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scenario })
+        });
+        logMcp(`>> [Ring Event] Scenario switched to '${scenario}'`);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function simulateDoorbellRing() {
+      playChime();
+      logMcp(`>> [Ring Chime Sensor] Front Doorbell button pressed`);
+      sendResidentQuery("Who is at the front door?");
+    }
+
+    // Toggle Smart Sensors
+    async function toggleDoorLock() {
+      isDoorLocked = !isDoorLocked;
+      const btn = document.getElementById('btnLock');
+      const hudLock = document.getElementById('hudDoorLock');
+      if (isDoorLocked) {
+        btn.className = 'toggle-pill on';
+        btn.innerText = 'LOCKED';
+        hudLock.innerText = 'LATCH: SECURE (LOCKED)';
+      } else {
+        btn.className = 'toggle-pill alert';
+        btn.innerText = 'UNLOCKED';
+        hudLock.innerText = 'LATCH: OPEN (UNLOCKED)';
+      }
+
+      await fetch('/api/simulator/toggle_lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locked: isDoorLocked })
+      });
+      logMcp(`>> [Smart Lock Sensor] Front door latch set to ${isDoorLocked ? 'LOCKED' : 'UNLOCKED'}`);
+    }
+
+    async function toggleMedication() {
+      isMedTaken = !isMedTaken;
+      const btn = document.getElementById('btnMeds');
+      const newStatus = isMedTaken ? 'TAKEN' : 'MISSED';
+      if (isMedTaken) {
+        btn.className = 'toggle-pill on';
+        btn.innerText = 'TAKEN (9:00 AM)';
+      } else {
+        btn.className = 'toggle-pill alert';
+        btn.innerText = 'MISSED / PENDING';
+      }
+
+      await fetch('/api/simulator/toggle_medication', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ med_name: 'Metoprolol', status: newStatus })
+      });
+      logMcp(`>> [Smart Pill Dispenser] Tray #1 status set to ${newStatus}`);
+    }
+
+    async function toggleStove() {
+      isStoveOff = !isStoveOff;
+      const btn = document.getElementById('btnStove');
+      const newState = isStoveOff ? 'OFF' : 'ON';
+      if (isStoveOff) {
+        btn.className = 'toggle-pill';
+        btn.innerText = 'OFF (SAFE)';
+      } else {
+        btn.className = 'toggle-pill alert';
+        btn.innerText = 'ON (WARNING)';
+      }
+
+      await fetch('/api/simulator/toggle_stove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: newState })
+      });
+      logMcp(`>> [Kitchen Stove Sensor] Burner thermal sensor set to ${newState}`);
+    }
+
+    // Alexa+ Dialog Processing
+    async function sendResidentQuery(text) {
+      const chatBox = document.getElementById('chatBox');
+
+      // Append Resident Bubble
+      const resMsg = document.createElement('div');
+      resMsg.className = 'msg-bubble resident';
+      resMsg.innerHTML = `<div class="msg-meta"><span>MARTHA (RESIDENT)</span></div><div>${escapeHtml(text)}</div>`;
+      chatBox.appendChild(resMsg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      logMcp(`>> [Alexa+ Request] User spoken input: "${text}"`);
+
+      try {
+        const response = await fetch('/api/alexa/intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: text })
+        });
+        const data = await response.json();
+
+        // Append Alexa Bubble
+        setTimeout(() => {
+          const alexaMsg = document.createElement('div');
+          alexaMsg.className = 'msg-bubble alexa';
+          alexaMsg.innerHTML = `
+            <div class="msg-meta">
+              <span>ALEXA+</span>
+              <span class="intent-pill">${data.cognitive_intent || 'CARE_RESPONSE'}</span>
+            </div>
+            <div>${escapeHtml(data.alexa_speech)}</div>
+          `;
+          chatBox.appendChild(alexaMsg);
+          chatBox.scrollTop = chatBox.scrollHeight;
+
+          // Speak speech out loud
+          speakAlexa(data.alexa_speech);
+
+          // Log MCP Tool execution
+          logMcp(`<< [MCP Tool Executed] ${data.mcp_tool_called}`);
+          logMcp(`<< [AWS Engine] ${data.aws_engine || 'Amazon Bedrock'}`);
+
+          // Intercom feedback if delivered
+          if (data.intercom_delivered) {
+            document.getElementById('intercomSub').innerText = `Broadcasting to Porch: "${data.intercom_delivered}"`;
+            logMcp(`<< [Ring Intercom] Dispatched porch speaker TTS`);
+          }
+
+          // Caregiver SNS notification update
+          if (data.sns_dispatch) {
+            const smsCard = document.getElementById('smsCard');
+            const smsBody = document.getElementById('smsBody');
+            const smsTime = document.getElementById('smsTimestamp');
+            const now = new Date();
+            smsTime.innerText = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+            smsBody.innerText = `[KinGuard Alert via SNS]: ${data.sns_dispatch.reason || data.alexa_speech} (Severity: ${data.sns_dispatch.severity || 'HIGH'})`;
+            logMcp(`<< [Amazon SNS] Sent SMS payload to ${data.sns_dispatch.recipient?.phone || '+1-555-019-2831'}`);
+          }
+        }, 350);
+
+      } catch (err) {
+        logMcp(`!! Error: ${err.message}`);
+      }
+    }
+
+    function submitCustomQuery() {
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      sendResidentQuery(text);
+    }
+
+    function logMcp(msg) {
+      const logBox = document.getElementById('mcpLog');
+      logBox.innerText += `\n${msg}`;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+
+    // Initialize speech voices
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  </script>
+</body>
+</html>
